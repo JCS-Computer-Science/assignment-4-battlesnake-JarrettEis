@@ -1,14 +1,31 @@
 export default function move(gameState){
+    const myHead = gameState.you.body[0];
+    const myNeck = gameState.you.body[1];
+    let targetMoves = {
+        up: false,
+        down: false,
+        left: false,
+        right: false
+    }
     let moveSafety = {
         up: true,
         down: true,
         left: true,
         right: true
     };
-    
-    // We've included code to prevent your Battlesnake from moving backwards
-    const myHead = gameState.you.body[0];
-    const myNeck = gameState.you.body[1];
+    let pathSafety = {
+        up: true,
+        down: true,
+        left: true,
+        right: true
+    };
+    let isHungry = true;
+    let closestFood = gameState.board.food[0];
+    let targetFood = {
+        distanceTotal: Math.abs(closestFood.x - myHead.x) + (closestFood.y - myHead.y),
+        distanceX: closestFood.x - myHead.x,
+        distanceY: closestFood.y - myHead.y,
+    }
     if (myNeck.x < myHead.x || 0 == myHead.x) {
         moveSafety.left = false;
     } 
@@ -21,10 +38,6 @@ export default function move(gameState){
     if (myNeck.y > myHead.y|| gameState.board.height == myHead.y+1) {
         moveSafety.up = false;
     }
-    
-    // TODO: Step 3 - Prevent your Battlesnake from colliding with other Battlesnakes
-    // gameState.board.snakes contains an array of enemy snake objects, which includes their coordinates
-    // https://docs.battlesnake.com/api/objects/battlesnake
     for(let s = 0; s < gameState.board.snakes.length; s++){
         for(let i = 0; i < gameState.board.snakes[s].body.length-1; i++){
             let body = gameState.board.snakes[s].body[i];
@@ -39,40 +52,67 @@ export default function move(gameState){
             }
         }
         //deal with head on collisions
-        if (gameState.board.snakes.id != gameState.you.id && gameState.board.snakes[s].body.length > gameState.you.body.length){
+        if (gameState.board.snakes.id != gameState.you.id && gameState.board.snakes[s].body.length >= gameState.you.body.length){
             let head = gameState.board.snakes[s].body[0];
             if (head.x+1 == myHead.x-1 && head.y == myHead.y){
-                moveSafety.left = false;
+                pathSafety.left = false;
             }
             if (head.x-1 == myHead.x+1 && head.y == myHead.y){
-                moveSafety.right = false;
+                pathSafety.right = false;
             }
             if (head.y+1 == myHead.y-1 && head.x == myHead.x){
-                moveSafety.down = false;
+                pathSafety.down = false;
             }
             if (head.y-1 == myHead.y+1 && head.x == myHead.x){
-                moveSafety.up = false;
+                pathSafety.up = false;
             }
         }
     }
-
-    // Are there any safe moves left?
-    
+    if (isHungry){
+        for (let i = 1; i < gameState.board.food.length; i++){
+            let d = Math.abs(gameState.board.food[i].x - myHead.x) + (gameState.board.food[i].y - myHead.y);
+            if (d<=targetFood.distanceTotal){
+                closestFood = gameState.board.food[i];
+                targetFood = {
+                    distanceTotal: Math.abs(closestFood.x - myHead.x) + (closestFood.y - myHead.y),
+                    distanceX: closestFood.x - myHead.x,
+                    distanceY: closestFood.y - myHead.y,
+                };
+            };
+        };
+        if (Math.abs(targetFood.distanceX) > Math.abs(closestFood.distanceY)){
+            if (targetFood.distanceX<0){
+                targetMoves.left = true;
+            }else{
+                targetMoves.right = true;
+            }
+        } else {
+            if (targetFood.distanceY<0){
+                targetMoves.down = true;
+            }else{
+                targetMoves.up = true;
+            }
+        }
+    };
     //Object.keys(moveSafety) returns ["up", "down", "left", "right"]
     //.filter() filters the array based on the function provided as an argument (using arrow function syntax here)
     //In this case we want to filter out any of these directions for which moveSafety[direction] == false
-    const safeMoves = Object.keys(moveSafety).filter(direction => moveSafety[direction]);
-    if (safeMoves.length == 0) {
-        console.log(`MOVE ${gameState.turn}: No safe moves detected! Moving down`);
-        return { move: "down" };
+    let safeMoves = Object.keys(moveSafety).filter(
+        direction => moveSafety[direction] && pathSafety[direction]
+    );
+    // Fallback to moveSafety only if nothing passes both checks
+    if (safeMoves.length === 0) {
+        safeMoves = Object.keys(moveSafety).filter(
+            direction => moveSafety[direction]
+        );
     }
+    // Prioritize targetMoves if any of them are safe
+    const prioritizedMoves = Object.keys(targetMoves).filter(
+        direction => targetMoves[direction] && safeMoves.includes(direction)
+    );
     
-    // Choose a random move from the safe moves
-    const nextMove = safeMoves[Math.floor(Math.random() * safeMoves.length)];
-    
-    // TODO: Step 4 - Move towards food instead of random, to regain health and survive longer
-    // gameState.board.food contains an array of food coordinates https://docs.battlesnake.com/api/objects/board
-    
-    console.log(`MOVE ${gameState.turn}: ${nextMove}`)
+    const nextMove = (prioritizedMoves.length > 0)
+        ? prioritizedMoves[Math.floor(Math.random() * prioritizedMoves.length)]
+        : safeMoves[Math.floor(Math.random() * safeMoves.length)];
     return { move: nextMove };
 }
