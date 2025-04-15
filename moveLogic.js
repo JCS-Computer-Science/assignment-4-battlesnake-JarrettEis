@@ -20,12 +20,6 @@ export default function move(gameState){
         right: true
     };
     let isHungry = true;
-    let closestFood = gameState.board.food[0];
-    let targetFood = {
-        distanceTotal: Math.abs(closestFood.x - myHead.x) + (closestFood.y - myHead.y),
-        distanceX: closestFood.x - myHead.x,
-        distanceY: closestFood.y - myHead.y,
-    }
     if (myNeck.x < myHead.x || 0 == myHead.x) {
         moveSafety.left = false;
     } 
@@ -68,32 +62,36 @@ export default function move(gameState){
             }
         }
     }
-    if (isHungry){
-        for (let i = 1; i < gameState.board.food.length; i++){
-            let d = Math.abs(gameState.board.food[i].x - myHead.x) + (gameState.board.food[i].y - myHead.y);
-            if (d<=targetFood.distanceTotal){
-                closestFood = gameState.board.food[i];
-                targetFood = {
-                    distanceTotal: Math.abs(closestFood.x - myHead.x) + (closestFood.y - myHead.y),
-                    distanceX: closestFood.x - myHead.x,
-                    distanceY: closestFood.y - myHead.y,
-                };
-            };
+    isHungry = gameState.you.health < 20 || gameState.board.snakes.some(snake => snake.id !== gameState.you.id && snake.body.length > gameState.you.body.length);
+    if (isHungry && gameState.board.food.length > 0){
+        let closestFood = gameState.board.food[0];
+        let targetFood = {
+            distanceTotal: Math.abs(closestFood.x - myHead.x) + Math.abs(closestFood.y - myHead.y),
+            distanceX: closestFood.x - myHead.x,
+            distanceY: closestFood.y - myHead.y,
         };
-        if (Math.abs(targetFood.distanceX) > Math.abs(closestFood.distanceY)){
-            if (targetFood.distanceX<0){
-                targetMoves.left = true;
-            }else{
-                targetMoves.right = true;
-            }
-        } else {
-            if (targetFood.distanceY<0){
-                targetMoves.down = true;
-            }else{
-                targetMoves.up = true;
+    
+        for (let i = 1; i < gameState.board.food.length; i++) {
+            let food = gameState.board.food[i];
+            let d = Math.abs(food.x - myHead.x) + Math.abs(food.y - myHead.y);
+            if (d < targetFood.distanceTotal) {
+                closestFood = food;
+                targetFood = {
+                    distanceTotal: d,
+                    distanceX: food.x - myHead.x,
+                    distanceY: food.y - myHead.y,
+                };
             }
         }
-    };
+        targetMoves = { up: false, down: false, left: false, right: false };
+        if (Math.abs(targetFood.distanceX) > Math.abs(targetFood.distanceY)) {
+            targetMoves[targetFood.distanceX < 0 ? 'left' : 'right'] = true;
+        } else {
+            targetMoves[targetFood.distanceY < 0 ? 'down' : 'up'] = true;
+        }
+    }else{
+        
+    }
     //Object.keys(moveSafety) returns ["up", "down", "left", "right"]
     //.filter() filters the array based on the function provided as an argument (using arrow function syntax here)
     //In this case we want to filter out any of these directions for which moveSafety[direction] == false
