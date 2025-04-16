@@ -25,18 +25,10 @@ export default function move(gameState){
         left: true,
         right: true
     };
-    if (myNeck.x < myHead.x || 0 == myHead.x) {
-        moveSafety.left = false;
-    } 
-    if (myNeck.x > myHead.x || gameState.board.width == myHead.x+1) {
-        moveSafety.right = false;
-    } 
-    if (myNeck.y < myHead.y || 0 == myHead.y) {
-        moveSafety.down = false; 
-    } 
-    if (myNeck.y > myHead.y|| gameState.board.height == myHead.y+1) {
-        moveSafety.up = false;
-    }
+    if (myNeck.x < myHead.x || 0 == myHead.x) {moveSafety.left = false;} 
+    if (myNeck.x > myHead.x || gameState.board.width == myHead.x+1) {moveSafety.right = false;} 
+    if (myNeck.y < myHead.y || 0 == myHead.y) {moveSafety.down = false; } 
+    if (myNeck.y > myHead.y|| gameState.board.height == myHead.y+1) {moveSafety.up = false;}
     for(let s = 0; s < gameState.board.snakes.length; s++){
         for(let i = 0; i < gameState.board.snakes[s].body.length-1; i++){
             let body = gameState.board.snakes[s].body[i];
@@ -76,6 +68,7 @@ export default function move(gameState){
             if (xDis < 0) {targetMoves.left = true;} else if (xDis > 0){targetMoves.right = true;}
             if (yDis < 0) {targetMoves.down = true;} else if (yDis > 0){targetMoves.up = true;}
     }
+ 
     let isHungry = gameState.you.health < 20  || gameState.you.body.length%2 != 0;
     if(nearMid == false && gameState.you.health>8 && gameState.you.body.length > 4){isHungry = false};
     if (isHungry && gameState.board.food.length > 0){
@@ -103,9 +96,56 @@ export default function move(gameState){
     } else {
         moveTo(center);
     }
-    //Object.keys(moveSafety) returns ["up", "down", "left", "right"]
-    //.filter() filters the array based on the function provided as an argument (using arrow function syntax here)
-    //In this case we want to filter out any of these directions for which moveSafety[direction] == false
+    let initialPath = {
+        visited: 0,
+        risk: 0
+    }
+    function floodPath(x,y,path){
+        const directions = {
+            up: {x: x ,y: y+1},
+            down: {x: x ,y: y-1},
+            left: {x: x-1 ,y: y},
+            right: {x: x+1 ,y: y}
+        };
+        let floodSafety = {
+            up: true,
+            down: true,
+            left: true,
+            right: true
+        }
+        if (0 == x) {floodSafety.left = false;}
+        if (gameState.board.width == x+1) {floodSafety.right = false;} 
+        if (0 == y) {floodSafety.down = false;} 
+        if (gameState.board.height == y+1) {floodSafety.up = false;}
+        for(let s = 0; s < gameState.board.snakes.length; s++){
+            for(let i = 0; i < gameState.board.snakes[s].body.length-1; i++){
+                let body = gameState.board.snakes[s].body[i];
+                if (body.x == x-1 && y == y) {
+                    floodSafety.left = false;
+                } else if (body.x == x+1 && body.y == y){
+                    floodSafety.right = false;
+                } else if (body.y == y-1 && body.x == x){
+                    floodSafety.down = false;
+                } else if (body.y == y+1 && body.x == x){ 
+                    floodSafety.up = false;
+                }
+            }
+            //deal with risk of being blocked off
+            if (gameState.board.snakes[s].id != gameState.you.id && gameState.board.snakes[s].body.length >= gameState.you.body.length){
+                let head = gameState.board.snakes[s].body[0];
+                for (let direction in directions) {
+                    let square = directions[direction];
+                    if ((head.x == square.x - 1 && head.y == square.y) ||
+                        (head.x == square.x + 1 && head.y == square.y) ||
+                        (head.x == square.x && head.y == square.y - 1) ||
+                        (head.x == square.x && head.y == square.y + 1)) {
+                        path.risk++
+                    }}}}
+        //base case:
+        if(path.visited.length>gameState.you.body.length || (floodSafety.down == false && floodSafety.up == false && floodSafety.left && floodSafety.right == false)){
+            return path;
+        }
+    }
     let safeMoves = Object.keys(moveSafety).filter(
         direction => moveSafety[direction] && pathSafety[direction]
     );
