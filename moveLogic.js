@@ -1,10 +1,12 @@
 export default function move(gameState){
     const myHead = gameState.you.body[0];
     const myNeck = gameState.you.body[1];
+    const myTail = gameState.you.body[gameState.you.body.length-1];
     const center = {
         x:  Math.floor(gameState.board.width-1)/2,
         y:  Math.floor(gameState.board.height-1)/2
     }
+    const nearMid = myHead.x>1 && myHead.x<gameState.board.width-2 && myHead.y>1 && myHead.y<gameState.board.height-2;
     let targetMoves = {
         up: false,
         down: false,
@@ -49,39 +51,39 @@ export default function move(gameState){
             }
         }
         //deal with head on collisions
-        if (gameState.board.snakes.id != gameState.you.id && gameState.board.snakes[s].body.length >= gameState.you.body.length){
+        if (gameState.board.snakes[s].id != gameState.you.id && gameState.board.snakes[s].body.length >= gameState.you.body.length){
             let head = gameState.board.snakes[s].body[0];
-            if (head.x+1 == myHead.x-1 && head.y == myHead.y){
-                pathSafety.left = false;
-            }
-            if (head.x-1 == myHead.x+1 && head.y == myHead.y){
-                pathSafety.right = false;
-            }
-            if (head.y+1 == myHead.y-1 && head.x == myHead.x){
-                pathSafety.down = false;
-            }
-            if (head.y-1 == myHead.y+1 && head.x == myHead.x){
-                pathSafety.up = false;
+            let adjacent = {
+                left: {x: myHead.x-1, y: myHead.y},
+                right: {x: myHead.x+1, y: myHead.y},
+                up: {x: myHead.x, y: myHead.y+1},
+                down: {x: myHead.x, y: myHead.y-1}
+            };
+            for (let direction in adjacent) {
+                let square = adjacent[direction];
+                if ((head.x == square.x - 1 && head.y == square.y) ||
+                    (head.x == square.x + 1 && head.y == square.y) ||
+                    (head.x == square.x && head.y == square.y - 1) ||
+                    (head.x == square.x && head.y == square.y + 1)) {
+                    pathSafety[direction] = false;
+                }
             }
         }
     }
     function moveTo(pos){
         let xDis = pos.x - myHead.x;
-        let yDis = pos.y - myHead.y
-        if (Math.abs(xDis) > Math.abs(yDis)) {
-            if (xDis < 0) {targetMoves.left = true;} else {targetMoves.right = true;}
-        } else {
-            if (yDis < 0) {targetMoves.down = true;} else {targetMoves.up = true;}
-        }
+        let yDis = pos.y - myHead.y;
+            if (xDis < 0) {targetMoves.left = true;} else if (xDis > 0){targetMoves.right = true;}
+            if (yDis < 0) {targetMoves.down = true;} else if (yDis > 0){targetMoves.up = true;}
     }
-
-    let isHungry = gameState.you.health < 20 || gameState.board.snakes.some(snake => snake.id !== gameState.you.id && snake.body.length > gameState.you.body.length);
+    let isHungry = gameState.you.health < 20  || gameState.you.body.length%2 != 0;
+    if(nearMid == false && gameState.you.health>8 && gameState.you.body.length > 4){isHungry = false};
     if (isHungry && gameState.board.food.length > 0){
         let closestFood = gameState.board.food[0];
         let targetFood = {
             distanceTotal: Math.abs(closestFood.x - myHead.x) + Math.abs(closestFood.y - myHead.y),
             distanceX: closestFood.x - myHead.x,
-            distanceY: closestFood.y - myHead.y,
+            distanceY: closestFood.y - myHead.y
         }
         for (let i = 1; i < gameState.board.food.length; i++) {
             let food = gameState.board.food[i];
@@ -92,10 +94,12 @@ export default function move(gameState){
                     distanceTotal: d,
                     distanceX: food.x - myHead.x,
                     distanceY: food.y - myHead.y,
-                };
+                }
             }
         }
         moveTo(closestFood);
+    } else if (nearMid){
+        moveTo(myTail);
     } else {
         moveTo(center);
     }
