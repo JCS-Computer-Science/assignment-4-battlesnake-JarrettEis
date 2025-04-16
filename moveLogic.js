@@ -1,6 +1,10 @@
 export default function move(gameState){
     const myHead = gameState.you.body[0];
     const myNeck = gameState.you.body[1];
+    const center = {
+        x:  Math.floor(gameState.board.width-1)/2,
+        y:  Math.floor(gameState.board.height-1)/2
+    }
     let targetMoves = {
         up: false,
         down: false,
@@ -19,7 +23,6 @@ export default function move(gameState){
         left: true,
         right: true
     };
-    let isHungry = true;
     if (myNeck.x < myHead.x || 0 == myHead.x) {
         moveSafety.left = false;
     } 
@@ -62,15 +65,24 @@ export default function move(gameState){
             }
         }
     }
-    isHungry = gameState.you.health < 20 || gameState.board.snakes.some(snake => snake.id !== gameState.you.id && snake.body.length > gameState.you.body.length);
+    function moveTo(pos){
+        let xDis = pos.x - myHead.x;
+        let yDis = pos.y - myHead.y
+        if (Math.abs(xDis) > Math.abs(yDis)) {
+            if (xDis < 0) {targetMoves.left = true;} else {targetMoves.right = true;}
+        } else {
+            if (yDis < 0) {targetMoves.down = true;} else {targetMoves.up = true;}
+        }
+    }
+
+    let isHungry = gameState.you.health < 20 || gameState.board.snakes.some(snake => snake.id !== gameState.you.id && snake.body.length > gameState.you.body.length);
     if (isHungry && gameState.board.food.length > 0){
         let closestFood = gameState.board.food[0];
         let targetFood = {
             distanceTotal: Math.abs(closestFood.x - myHead.x) + Math.abs(closestFood.y - myHead.y),
             distanceX: closestFood.x - myHead.x,
             distanceY: closestFood.y - myHead.y,
-        };
-    
+        }
         for (let i = 1; i < gameState.board.food.length; i++) {
             let food = gameState.board.food[i];
             let d = Math.abs(food.x - myHead.x) + Math.abs(food.y - myHead.y);
@@ -83,14 +95,9 @@ export default function move(gameState){
                 };
             }
         }
-        targetMoves = { up: false, down: false, left: false, right: false };
-        if (Math.abs(targetFood.distanceX) > Math.abs(targetFood.distanceY)) {
-            targetMoves[targetFood.distanceX < 0 ? 'left' : 'right'] = true;
-        } else {
-            targetMoves[targetFood.distanceY < 0 ? 'down' : 'up'] = true;
-        }
-    }else{
-        
+        moveTo(closestFood);
+    } else {
+        moveTo(center);
     }
     //Object.keys(moveSafety) returns ["up", "down", "left", "right"]
     //.filter() filters the array based on the function provided as an argument (using arrow function syntax here)
@@ -108,7 +115,6 @@ export default function move(gameState){
     const prioritizedMoves = Object.keys(targetMoves).filter(
         direction => targetMoves[direction] && safeMoves.includes(direction)
     );
-    
     const nextMove = (prioritizedMoves.length > 0)
         ? prioritizedMoves[Math.floor(Math.random() * prioritizedMoves.length)]
         : safeMoves[Math.floor(Math.random() * safeMoves.length)];
