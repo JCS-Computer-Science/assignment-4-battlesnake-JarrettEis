@@ -71,7 +71,7 @@ export default function move(gameState) {
     }
 
     let isHungry = gameState.you.health < 20 || gameState.you.body.length % 2 != 0 || gameState.board.snakes.some(s => s.id !== gameState.you.id && s.body.length >= gameState.you.body.length - 2);
-    if (nearMid == false && gameState.you.health > 8 && gameState.you.body.length > 4) { isHungry = false; };
+    //if (nearMid == false && gameState.you.health > 8 && gameState.you.body.length > 4) { isHungry = false; };
     if (isHungry && gameState.board.food.length > 0) {
         let closestFood = gameState.board.food[0];
         let targetFood = {
@@ -96,9 +96,9 @@ export default function move(gameState) {
         moveTo(myTail);
         //moveTo(center);
     } else {
-        moveTo(center);
+        //moveTo(center);
+        moveTo(myTail)
     }
-
     // Queue-based flood fill
     function floodpath(x, y) {
         const directions = [
@@ -107,24 +107,50 @@ export default function move(gameState) {
             { x: -1, y: 0 }, // left
             { x: 1, y: 0 }   // right
         ];
-
+    
         let visited = new Set();
-        let queue = [{ x: x, y: y }];
+        let queue = [{ x: x, y: y, risk: 0 }];
         let path = [];
-
+    
         visited.add(`${x},${y}`);
-
+    
+        function bottleNeck(x, y) {
+            let risk = 0;
+            for (let snake of gameState.board.snakes) {
+                if (snake.id !== gameState.you.id) {
+                    for (let i = 0; i < snake.body.length; i++) {
+                        let bodyPart = snake.body[i];
+                        if (
+                            (bodyPart.x === x - 1 && bodyPart.y === y) ||
+                            (bodyPart.x === x + 1 && bodyPart.y === y) ||
+                            (bodyPart.x === x && bodyPart.y === y - 1) ||
+                            (bodyPart.x === x && bodyPart.y === y + 1) 
+                        ) {
+                            risk++;
+                        }
+                    }
+                    if (
+                        ((snake.body.some(part => part.x === x - 1 && part.y === y) && snake.body.some(part => part.x === x + 1 && part.y === y)) || 
+                         (snake.body.some(part => part.x === x && part.y === y - 1) && snake.body.some(part => part.x === x && part.y === y + 1)))
+                    ) {
+                        risk += 2;
+                    }}}
+            return risk;
+        }        
+    
         while (queue.length > 0) {
-            let { x, y } = queue.shift();
-            path.push({ x, y });
-
-            // Process each direction
+            let { x, y, risk = 0 } = queue.shift();
+            path.push({ x, y, risk });
+        
             for (let { x: dx, y: dy } of directions) {
                 let newX = x + dx;
                 let newY = y + dy;
-
-                if (newX >= 0 && newX < gameState.board.width && newY >= 0 && newY < gameState.board.height && !visited.has(`${newX},${newY}`)) {
-                    // Check for obstacles (walls or other snakes)
+                const key = `${newX},${newY}`;
+        
+                if (newX >= 0 && newX < gameState.board.width &&
+                    newY >= 0 && newY < gameState.board.height &&
+                    !visited.has(key)) {
+        
                     let isBlocked = false;
                     for (let s = 0; s < gameState.board.snakes.length; s++) {
                         for (let i = 0; i < gameState.board.snakes[s].body.length - 1; i++) {
@@ -136,15 +162,16 @@ export default function move(gameState) {
                         }
                         if (isBlocked) break;
                     }
-
+        
                     if (!isBlocked) {
-                        visited.add(`${newX},${newY}`);
-                        queue.push({ x: newX, y: newY });
+                        visited.add(key);
+                        const risk = bottleNeck(newX, newY);
+                        queue.push({ x: newX, y: newY, risk });
                     }
                 }
             }
-        }
-
+        }        
+    
         return path;
     }
 // Function to check if the tail is adjacent to the filled space
@@ -155,6 +182,9 @@ function checkTailAdjacencyToFilledSpace(path, tail) {
         (space.x === tail.x && space.y === tail.y - 1) ||
         (space.x === tail.x && space.y === tail.y + 1)
     );
+}
+function totalRisk(path) {
+    return path.reduce((sum, step) => sum + (step.risk || 0), 0);
 }
 let rightPath = floodpath(myHead.x + 1, myHead.y);
 let leftPath = floodpath(myHead.x - 1, myHead.y);
@@ -199,22 +229,45 @@ if (rightPath.length > gameState.you.body.length || leftPath.length > gameState.
     }
 }
 
-    let safeMoves = Object.keys(moveSafety).filter(
-        direction => moveSafety[direction] && pathSafety[direction]
-    );
-    // Fallback to moveSafety only if nothing passes both checks
-    if (safeMoves.length === 0) {
-        safeMoves = Object.keys(moveSafety).filter(
-            direction => moveSafety[direction]
-        );
-    }
-    // Prioritize targetMoves if any of them are safe
-    const prioritizedMoves = Object.keys(targetMoves).filter(
-        direction => targetMoves[direction] && safeMoves.includes(direction)
-    );
-    const nextMove = (prioritizedMoves.length > 0)
-        ? prioritizedMoves[Math.floor(Math.random() * prioritizedMoves.length)]
-        : safeMoves[Math.floor(Math.random() * safeMoves.length)];
+let directionInfo = {
+    right: { path: rightPath, risk: totalRisk(rightPath), length: rightPath.length, safe: moveSafety.right && pathSafety.right },
+    left: { path: leftPath, risk: totalRisk(leftPath), length: leftPath.length, safe: moveSafety.left && pathSafety.left },
+    up: { path: upPath, risk: totalRisk(upPath), length: upPath.length, safe: moveSafety.up && pathSafety.up },
+    down: { path: downPath, risk: totalRisk(downPath), length: downPath.length, safe: moveSafety.down && pathSafety.down },
+};
 
-    return { move: nextMove };
+let safeDirections = Object.keys(directionInfo).filter(dir => directionInfo[dir].safe);
+
+if (safeDirections.length === 0) {
+    safeDirections = Object.keys(moveSafety).filter(dir => moveSafety[dir]);
+}
+
+let prioritized = Object.keys(targetMoves).filter(dir => targetMoves[dir] && safeDirections.includes(dir));
+
+let bestMove;
+
+if (prioritized.length > 0) {
+    // Among prioritized directions, pick lowest-risk one with decent space
+    bestMove = prioritized.reduce((best, current) => {
+        if (!best) return current;
+        const b = directionInfo[best];
+        const c = directionInfo[current];
+        if (c.length >= gameState.you.body.length && c.risk < b.risk) return current;
+        if (c.length > b.length) return current;
+        return best;
+    }, null);
+} else {
+    // Pick the safest overall direction by low risk and big path
+    bestMove = safeDirections.reduce((best, current) => {
+        if (!best) return current;
+        const b = directionInfo[best];
+        const c = directionInfo[current];
+        if (c.length >= gameState.you.body.length && c.risk < b.risk) return current;
+        if (c.length > b.length) return current;
+        return best;
+    }, null);
+}
+
+const nextMove = bestMove || safeDirections[Math.floor(Math.random() * safeDirections.length)];
+return { move: nextMove };
 }
