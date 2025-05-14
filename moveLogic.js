@@ -70,7 +70,7 @@ export default function move(gameState) {
         if (yDis < 0) { targetMoves.down = true; } else if (yDis > 0) { targetMoves.up = true; }
     }
 
-    let isHungry = gameState.you.health < 20 || gameState.you.body.length % 2 != 0 || gameState.board.snakes.some(s => s.id !== gameState.you.id && s.body.length >= gameState.you.body.length - 2);
+    let isHungry = gameState.you.health < 25 || gameState.you.body.length % 2 != 0 || gameState.board.snakes.some(s => s.id !== gameState.you.id && s.body.length >= gameState.you.body.length - 2);
     //if (nearMid == false && gameState.you.health > 8 && gameState.you.body.length > 4) { isHungry = false; };
     if (isHungry && gameState.board.food.length > 0) {
         let closestFood = gameState.board.food[0];
@@ -94,10 +94,8 @@ export default function move(gameState) {
         moveTo(closestFood);
     } else if (nearMid) {
         moveTo(myTail);
-        //moveTo(center);
     } else {
-        //moveTo(center);
-        moveTo(myTail)
+        moveTo(center);
     }
     // Queue-based flood fill
     function floodpath(x, y) {
@@ -162,7 +160,6 @@ export default function move(gameState) {
                         }
                         if (isBlocked) break;
                     }
-        
                     if (!isBlocked) {
                         visited.add(key);
                         const risk = bottleNeck(newX, newY);
@@ -190,7 +187,12 @@ let rightPath = floodpath(myHead.x + 1, myHead.y);
 let leftPath = floodpath(myHead.x - 1, myHead.y);
 let upPath = floodpath(myHead.x, myHead.y + 1);
 let downPath = floodpath(myHead.x, myHead.y - 1);
-
+for (let hazard of gameState.board.hazards) {
+    if (hazard.x === myHead.x + 1 && hazard.y === myHead.y) pathSafety.right = false;
+    if (hazard.x === myHead.x - 1 && hazard.y === myHead.y) pathSafety.left = false;
+    if (hazard.x === myHead.x && hazard.y === myHead.y + 1) pathSafety.up = false;
+    if (hazard.x === myHead.x && hazard.y === myHead.y - 1) pathSafety.down = false;
+}
 if (rightPath.length > gameState.you.body.length || leftPath.length > gameState.you.body.length || upPath.length > gameState.you.body.length || downPath.length > gameState.you.body.length) {
     if (rightPath.length <= gameState.you.body.length) { pathSafety.right = false; console.log("dead end detected right on turn " + gameState.turn); }
     if (leftPath.length <= gameState.you.body.length) { pathSafety.left = false; console.log("dead end detected left on turn " + gameState.turn); }
